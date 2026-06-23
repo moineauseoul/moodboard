@@ -293,8 +293,8 @@
         <label class="upload-zone" id="zone" for="fileIn">
             <input type="file" id="fileIn" accept="image/*" multiple />
             <div class="icon">🖼️</div>
-            <h3>클릭하거나 이미지를 드래그하세요</h3>
-            <p>JPG · PNG · WebP · GIF &nbsp;|&nbsp; 최대 10장 &nbsp;|&nbsp; 파일당 5 MB 이하</p>
+            <h3>클릭, 드래그, 붙여넣기로 이미지를 추가하세요</h3>
+            <p>JPG · PNG · WebP · GIF &nbsp;|&nbsp; Ctrl+V 지원 &nbsp;|&nbsp; 최대 10장 &nbsp;|&nbsp; 파일당 5 MB 이하</p>
         </label>
         <div class="image-grid" id="imgGrid"></div>
     </div>
@@ -445,8 +445,23 @@
         addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
     });
 
+    document.addEventListener('paste', e => {
+        const files = [...(e.clipboardData?.files || [])].filter(f => f.type.startsWith('image/'));
+        if (files.length) {
+            e.preventDefault();
+            addFiles(files);
+            return;
+        }
+
+        const text = e.clipboardData?.getData('text/plain')?.trim();
+        if (text && /pinterest\.|pinimg\.|^https?:\/\//i.test(text)) {
+            alert('복사한 내용이 이미지 파일이 아니라 링크입니다. 핀터레스트에서 이미지를 복사한 뒤 다시 붙여넣어 주세요.');
+        }
+    });
+
     function addFiles(files) {
         const slots = 10 - imgs.length;
+        if (slots <= 0) { alert('이미지는 최대 10장까지 추가할 수 있습니다.'); return; }
         files.slice(0, slots).forEach(f => {
             if (f.size > 5 * 1024 * 1024) { alert(`${f.name}: 5 MB 초과`); return; }
             const r = new FileReader();
