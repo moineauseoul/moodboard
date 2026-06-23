@@ -153,6 +153,7 @@
         }
         .collection-name { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.5rem; color: var(--text); }
         .collection-desc { color: var(--muted); line-height: 1.7; font-size: 0.875rem; }
+        .result-actions { display: flex; justify-content: flex-end; margin: -0.25rem 0 1rem; }
 
         /* ── Tabs ── */
         .tabs {
@@ -335,6 +336,10 @@
                 <div class="collection-desc" id="colDesc"></div>
             </div>
 
+            <div class="result-actions">
+                <button class="btn-ghost" id="exportReportBtn">결과 파일 저장</button>
+            </div>
+
             <!-- 탭 -->
             <div class="tabs">
                 <button class="tab active" data-t="overview">전체 개요</button>
@@ -405,6 +410,7 @@
     const imgGrid   = document.getElementById('imgGrid');
     const analyzeBtn= document.getElementById('analyzeBtn');
     const clearSavedBtn = document.getElementById('clearSavedBtn');
+    const exportReportBtn = document.getElementById('exportReportBtn');
     const statusTxt = document.getElementById('statusTxt');
     const results   = document.getElementById('results');
     const loadBox   = document.getElementById('loadBox');
@@ -513,6 +519,11 @@
         renderGrid();
         sync();
         results.classList.add('hidden');
+    });
+
+    exportReportBtn.addEventListener('click', () => {
+        if (!lastResult) { alert('저장할 분석 결과가 없습니다.'); return; }
+        downloadReport(lastResult);
     });
 
     // ── Tabs ──
@@ -788,6 +799,124 @@ JSON만 출력하세요.`;
             tx.onerror = () => reject(tx.error);
             tx.onabort = () => reject(tx.error);
         });
+    }
+
+    function downloadReport(d) {
+        const title = d.collection?.name || '나의 무드보드';
+        const html = buildReportHtml(d);
+        const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${safeFileName(title)}-moodboard.html`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+
+    function buildReportHtml(d) {
+        const title = d.collection?.name || '나의 무드보드';
+        const desc = d.collection?.description || '';
+        const today = new Date().toLocaleString('ko-KR');
+        const imageMap = img => `<figure><img src="${img.url}" alt="${esc(img.name)}"><figcaption>${esc(img.name)}</figcaption></figure>`;
+        const tagList = items => (items || []).map(item => `<span class="tag">${esc(item)}</span>`).join('');
+        const colors = (d.colors || []).map(c => `
+            <div class="color">
+                <span class="swatch" style="background:${esc(c)}"></span>
+                <span>${esc(c)}</span>
+            </div>`).join('');
+        const groups = (d.groups || []).map((g, i) => {
+            const groupImgs = (g.image_indices || []).filter(x => x < imgs.length).map(x => imgs[x]).map(imageMap).join('');
+            return `
+                <section class="block">
+                    <h3>그룹 ${i + 1}. ${esc(g.name || '')}</h3>
+                    <p>${esc(g.description || '')}</p>
+                    <div class="images">${groupImgs}</div>
+                </section>`;
+        }).join('');
+        const details = (d.image_details || []).map(det => {
+            const img = imgs[det.index];
+            if (!img) return '';
+            return `
+                <section class="detail">
+                    ${imageMap(img)}
+                    <div>
+                        <h3>${esc(img.name)}</h3>
+                        <div class="tags">${tagList(det.keywords)}</div>
+                    </div>
+                </section>`;
+        }).join('');
+        const pinterest = (d.pinterest_queries || []).map(q => {
+            const href = `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(q)}`;
+            return `<a href="${href}" target="_blank" rel="noopener noreferrer">${esc(q)}</a>`;
+        }).join('');
+
+        return `<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${esc(title)} - Moodboard Report</title>
+<style>
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 40px 24px; font-family: -apple-system, BlinkMacSystemFont, "Noto Sans KR", sans-serif; color: #111; background: #fff; }
+    main { max-width: 1080px; margin: 0 auto; }
+    header { padding: 28px 0 26px; border-bottom: 1px solid #e8e8e8; margin-bottom: 28px; }
+    h1 { margin: 0 0 10px; font-size: 32px; letter-spacing: 0; }
+    h2 { margin: 34px 0 14px; font-size: 18px; }
+    h3 { margin: 0 0 8px; font-size: 15px; }
+    p { color: #666; line-height: 1.7; margin: 0; }
+    .meta { margin-top: 14px; color: #999; font-size: 12px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    figure { margin: 0; border: 1px solid #e8e8e8; border-radius: 8px; overflow: hidden; background: #fafafa; }
+    figure img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+    figcaption { padding: 8px; color: #777; font-size: 12px; overflow-wrap: anywhere; }
+    .panel { border: 1px solid #e8e8e8; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag { display: inline-flex; border: 1px solid #e0e0e0; border-radius: 999px; padding: 6px 11px; font-size: 13px; background: #fafafa; }
+    .colors { display: flex; flex-wrap: wrap; gap: 12px; }
+    .color { display: flex; align-items: center; gap: 8px; color: #555; font-size: 13px; }
+    .swatch { width: 28px; height: 28px; border: 1px solid #ddd; border-radius: 7px; display: inline-block; }
+    .block { border: 1px solid #e8e8e8; border-radius: 10px; padding: 18px; margin-bottom: 14px; }
+    .images { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin-top: 14px; }
+    .detail { display: grid; grid-template-columns: 130px 1fr; gap: 16px; border: 1px solid #e8e8e8; border-radius: 10px; padding: 14px; margin-bottom: 12px; align-items: start; }
+    .links { display: flex; flex-direction: column; gap: 8px; }
+    .links a { color: #111; text-decoration: none; border: 1px solid #e8e8e8; border-radius: 8px; padding: 10px 12px; }
+    @media (max-width: 640px) { body { padding: 24px 14px; } .detail { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>${esc(title)}</h1>
+        <p>${esc(desc)}</p>
+        <div class="meta">저장일: ${esc(today)} · 이미지 ${imgs.length}장</div>
+    </header>
+
+    <h2>업로드 이미지</h2>
+    <div class="grid">${imgs.map(imageMap).join('')}</div>
+
+    <h2>전체 개요</h2>
+    <section class="panel"><h3>전체 키워드</h3><div class="tags">${tagList(d.keywords)}</div></section>
+    <section class="panel"><h3>무드 & 분위기</h3><div class="tags">${tagList(d.moods)}</div></section>
+    <section class="panel"><h3>색상 팔레트</h3><div class="colors">${colors}</div></section>
+
+    <h2>이미지 그룹</h2>
+    ${groups || '<p>그룹 정보가 없습니다.</p>'}
+
+    <h2>이미지별 키워드</h2>
+    ${details || '<p>이미지별 키워드가 없습니다.</p>'}
+
+    <h2>핀터레스트 추천 검색어</h2>
+    <section class="links">${pinterest || '<p>추천 검색어가 없습니다.</p>'}</section>
+</main>
+</body>
+</html>`;
+    }
+
+    function safeFileName(s) {
+        return String(s || 'moodboard').trim().replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-').slice(0, 60) || 'moodboard';
     }
 
     function span(cls, txt) {
