@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moodboard Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg: #ffffff;
+            --surface: #ffffff;
+            --surface2: #f7f7f7;
+            --border: #e8e8e8;
+            --text: #111111;
+            --muted: #999999;
+            --accent: #111111;
+            --accent-dim: rgba(0,0,0,0.04);
+            --red: #e60023;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 3rem 1.5rem;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* ── Header ── */
+        header { text-align: center; margin-bottom: 2rem; }
+        header h1 {
+            font-size: 1rem; font-weight: 700; letter-spacing: -0.01em;
+            color: var(--text); margin-bottom: 0.3rem;
+        }
+        header p { color: var(--muted); font-size: 0.8rem; }
+
+        /* ── Card ── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.4rem 1.6rem;
+            margin-bottom: 1rem;
+        }
+        .label {
+            font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.1em; color: var(--muted); margin-bottom: 0.85rem;
+        }
+
+        /* ── Inputs ── */
+        .row { display: flex; gap: 0.6rem; align-items: center; }
+        input[type="password"], input[type="text"], select {
+            flex: 1; background: var(--surface2); border: 1px solid var(--border);
+            border-radius: 8px; padding: 0.6rem 0.9rem; color: var(--text);
+            font-size: 0.875rem; outline: none; transition: border-color 0.15s;
+            font-family: inherit;
+        }
+        input:focus, select:focus { border-color: var(--accent); }
+        select { cursor: pointer; flex: 0 0 auto; min-width: 170px; }
+
+        /* ── Buttons ── */
+        button {
+            cursor: pointer; border: none; border-radius: 8px;
+            font-size: 0.875rem; font-weight: 500; font-family: inherit;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .btn-ghost {
+            background: var(--surface2); color: var(--muted);
+            padding: 0.6rem 1rem; border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { color: var(--text); border-color: #ccc; }
+
+        .btn-analyze {
+            background: var(--accent);
+            color: #fff; padding: 0.75rem 1.8rem; font-size: 0.9rem;
+            font-weight: 700; border-radius: 8px;
+            display: flex; align-items: center; gap: 0.5rem; letter-spacing: -0.01em;
+        }
+        .btn-analyze:hover:not(:disabled) {
+            background: #333;
+        }
+        .btn-analyze:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* ── Upload zone ── */
+        .upload-zone {
+            border: 1.5px dashed var(--border); border-radius: 12px;
+            padding: 2.5rem 2rem; text-align: center; cursor: pointer;
+            transition: all 0.2s; display: block; position: relative;
+            background: var(--surface2);
+        }
+        .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: var(--accent-dim); }
+        .upload-zone input[type="file"] {
+            position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+        }
+        .upload-zone .icon { font-size: 1.8rem; margin-bottom: 0.7rem; }
+        .upload-zone h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 0.3rem; color: var(--text); }
+        .upload-zone p { font-size: 0.78rem; color: var(--muted); }
+
+        /* ── Image grid ── */
+        .image-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 0.6rem; margin-top: 1rem;
+        }
+        .img-item { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); }
+        .img-item img { width: 100%; height: 100%; object-fit: cover; }
+        .img-item .rm {
+            position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.55);
+            color: #fff; border: none; border-radius: 50%; width: 20px; height: 20px;
+            font-size: 0.65rem; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; opacity: 0; transition: opacity 0.15s;
+        }
+        .img-item:hover .rm { opacity: 1; }
+        .img-item .fn {
+            position: absolute; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(transparent, rgba(0,0,0,0.6));
+            color: #fff; font-size: 0.6rem; padding: 0.5rem 0.35rem 0.28rem;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* ── Analyze bar ── */
+        .analyze-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+        .analyze-bar .status { color: var(--muted); font-size: 0.875rem; }
+
+        /* ── Loading ── */
+        .loading-state {
+            display: flex; align-items: center; justify-content: center;
+            gap: 0.9rem; padding: 2.5rem; color: var(--muted);
+        }
+        .spinner {
+            width: 20px; height: 20px; border: 2px solid var(--border);
+            border-top-color: var(--accent); border-radius: 50%;
+            animation: spin 0.75s linear infinite; flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── Error ── */
+        .error-box {
+            background: #fff5f5; border: 1px solid #fecaca;
+            border-radius: 8px; padding: 1rem; color: #dc2626; font-size: 0.85rem;
+        }
+
+        /* ── Collection header ── */
+        .collection-header {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px; padding: 1.8rem 2rem; margin-bottom: 1rem;
+        }
+        .collection-name { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 0.5rem; color: var(--text); }
+        .collection-desc { color: var(--muted); line-height: 1.7; font-size: 0.875rem; }
+
+        /* ── Tabs ── */
+        .tabs {
+            display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 1.25rem;
+        }
+        .tab {
+            padding: 0.6rem 1.1rem; font-size: 0.83rem; font-weight: 500;
+            color: var(--muted); background: none; border: none;
+            border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s;
+        }
+        .tab.active { color: var(--text); border-bottom-color: var(--text); }
+        .tab:hover:not(.active) { color: var(--text); }
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        /* ── Two-col grid ── */
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+        @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+
+        /* ── Tags ── */
+        .tag-cloud { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+        .tag {
+            background: var(--surface2); border: 1px solid var(--border); border-radius: 100px;
+            padding: 0.27rem 0.7rem; font-size: 0.77rem; color: var(--text); transition: all 0.15s;
+        }
+        .tag:hover { border-color: var(--accent); background: var(--accent); color: #fff; }
+        .tag.mood { background: #fff; border-color: var(--border); color: var(--muted); font-style: italic; }
+        .tag.mood:hover { border-color: var(--accent); color: var(--accent); background: #fff; }
+
+        /* ── Color palette ── */
+        .palette { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+        .swatch-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; }
+        .swatch {
+            width: 44px; height: 44px; border-radius: 8px;
+            border: 1px solid var(--border); cursor: pointer;
+            transition: transform 0.15s;
+        }
+        .swatch:hover { transform: scale(1.1); }
+        .swatch-hex { font-size: 0.63rem; color: var(--muted); }
+
+        /* ── Groups ── */
+        .group-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem; margin-bottom: 0.85rem; }
+        .group-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
+        .group-badge {
+            background: var(--accent); color: #fff; font-size: 0.65rem; font-weight: 700;
+            padding: 0.18rem 0.55rem; border-radius: 100px; white-space: nowrap; letter-spacing: 0.03em;
+        }
+        .group-name { font-weight: 700; font-size: 0.9rem; color: var(--text); }
+        .group-desc { color: var(--muted); font-size: 0.77rem; margin-left: auto; }
+        .group-imgs {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 0.4rem;
+        }
+        .group-img { aspect-ratio: 1; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
+        .group-img img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* ── Image details ── */
+        .img-detail {
+            display: flex; gap: 1rem; padding: 0.8rem; background: var(--surface2);
+            border: 1px solid var(--border); border-radius: 10px; margin-bottom: 0.65rem; align-items: flex-start;
+        }
+        .img-detail img { width: 60px; height: 60px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+        .detail-name { font-size: 0.73rem; color: var(--muted); margin-bottom: 0.4rem; }
+        .detail-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+        .detail-tags span {
+            background: #fff; border: 1px solid var(--border); border-radius: 4px;
+            padding: 0.15rem 0.5rem; font-size: 0.71rem; color: var(--text);
+        }
+
+        /* ── Pinterest ── */
+        .pinterest-list { display: flex; flex-direction: column; gap: 0.4rem; }
+        .p-item {
+            display: flex; align-items: center; gap: 0.75rem;
+            background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+            padding: 0.6rem 1rem; font-size: 0.85rem; cursor: pointer;
+            text-decoration: none; color: var(--text); transition: all 0.15s;
+        }
+        .p-item:hover { border-color: var(--red); background: #fff5f5; }
+        .p-icon { color: var(--red); font-weight: 900; font-size: 0.9rem; }
+        .p-arrow { margin-left: auto; color: var(--muted); font-size: 0.75rem; }
+
+        /* ── Util ── */
+        .hidden { display: none !important; }
+        .row-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.85rem; }
+        .row-head .label { margin-bottom: 0; }
+        .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 100px; padding: 0.18rem 0.55rem; font-size: 0.71rem; color: var(--muted); }
+        .hint { font-size: 0.77rem; color: var(--muted); margin-bottom: 0.9rem; }
+
+        /* ── Collapsible ── */
+        .collapsible-header {
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; user-select: none;
+        }
+        .collapsible-header .label { margin-bottom: 0; }
+        .collapsible-chevron {
+            font-size: 0.7rem; color: var(--muted); transition: transform 0.2s;
+        }
+        .collapsible-body {
+            overflow: hidden; max-height: 0;
+            transition: max-height 0.25s ease, margin-top 0.25s ease;
+            margin-top: 0;
+        }
+        .collapsible-body.open {
+            max-height: 200px; margin-top: 1rem;
+        }
+        .collapsible-chevron.open { transform: rotate(180deg); }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <header>
+        <h1>Moodboard Generator</h1>
+        <p>이미지를 업로드하면 Claude AI가 키워드·그룹·핀터레스트 검색어를 자동으로 뽑아줍니다</p>
+    </header>
+
+    <!-- API 설정 -->
+    <div class="card">
+        <div class="collapsible-header" id="apiToggle">
+            <span class="label">Claude API 설정</span>
+            <span class="collapsible-chevron" id="apiChevron">▼</span>
+        </div>
+        <div class="collapsible-body" id="apiBody">
+            <div class="row">
+                <input type="password" id="apiKey" placeholder="API 키를 입력하세요 (sk-ant-...)" />
+                <select id="modelSel">
+                    <option value="claude-sonnet-4-6">Sonnet 4.6 (권장)</option>
+                    <option value="claude-haiku-4-5-20251001">Haiku 4.5 (빠름)</option>
+                    <option value="claude-opus-4-8">Opus 4.8 (고성능)</option>
+                </select>
+                <button class="btn-ghost" id="saveBtn">저장</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 업로드 -->
+    <div class="card">
+        <div class="label">이미지 업로드</div>
+        <label class="upload-zone" id="zone" for="fileIn">
+            <input type="file" id="fileIn" accept="image/*" multiple />
+            <div class="icon">🖼️</div>
+            <h3>클릭하거나 이미지를 드래그하세요</h3>
+            <p>JPG · PNG · WebP · GIF &nbsp;|&nbsp; 최대 10장 &nbsp;|&nbsp; 파일당 5 MB 이하</p>
+        </label>
+        <div class="image-grid" id="imgGrid"></div>
+    </div>
+
+    <!-- 분석 -->
+    <div class="card">
+        <div class="analyze-bar">
+            <span class="status" id="statusTxt">이미지를 업로드하면 분석할 수 있습니다</span>
+            <div class="row">
+                <button class="btn-ghost hidden" id="clearSavedBtn">저장 초기화</button>
+                <button class="btn-analyze" id="analyzeBtn" disabled>✨ AI 분석 시작</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 결과 영역 -->
+    <div id="results" class="hidden">
+
+        <!-- 로딩 -->
+        <div class="card hidden" id="loadBox">
+            <div class="loading-state">
+                <div class="spinner"></div>
+                <span>Claude가 이미지를 분석하는 중입니다…</span>
+            </div>
+        </div>
+
+        <!-- 에러 -->
+        <div class="card hidden" id="errBox">
+            <div class="error-box" id="errMsg"></div>
+        </div>
+
+        <!-- 결과 콘텐츠 -->
+        <div id="resultContent" class="hidden">
+
+            <!-- 컬렉션 헤더 -->
+            <div class="collection-header">
+                <div class="collection-name" id="colName"></div>
+                <div class="collection-desc" id="colDesc"></div>
+            </div>
+
+            <!-- 탭 -->
+            <div class="tabs">
+                <button class="tab active" data-t="overview">전체 개요</button>
+                <button class="tab" data-t="groups">이미지 그룹</button>
+                <button class="tab" data-t="details">이미지별 키워드</button>
+                <button class="tab" data-t="pinterest">핀터레스트</button>
+            </div>
+
+            <!-- 전체 개요 -->
+            <div class="tab-panel active" id="tab-overview">
+                <div class="two-col">
+                    <div class="card">
+                        <div class="row-head">
+                            <span class="label">전체 키워드</span>
+                            <span class="badge" id="kwCount">0</span>
+                        </div>
+                        <div class="tag-cloud" id="kwCloud"></div>
+                    </div>
+                    <div class="card">
+                        <div class="row-head"><span class="label">무드 &amp; 분위기</span></div>
+                        <div class="tag-cloud" id="moodCloud"></div>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="row-head"><span class="label">색상 팔레트</span><span class="hint" style="margin-left:0.5rem">클릭하면 HEX 복사</span></div>
+                    <div class="palette" id="palette"></div>
+                </div>
+            </div>
+
+            <!-- 이미지 그룹 -->
+            <div class="tab-panel" id="tab-groups">
+                <div id="groupsCont"></div>
+            </div>
+
+            <!-- 이미지별 키워드 -->
+            <div class="tab-panel" id="tab-details">
+                <div id="detailsCont"></div>
+            </div>
+
+            <!-- 핀터레스트 -->
+            <div class="tab-panel" id="tab-pinterest">
+                <div class="card">
+                    <div class="row-head"><span class="label">핀터레스트 추천 검색어</span></div>
+                    <p class="hint">클릭하면 핀터레스트에서 바로 검색됩니다</p>
+                    <div class="pinterest-list" id="pinList"></div>
+                </div>
+            </div>
+
+        </div><!-- /resultContent -->
+    </div><!-- /results -->
+
+</div><!-- /container -->
+
+<script>
+(function () {
+    let imgs = [];
+    let lastResult = null;
+    const STORE_KEY = 'moodboard_state_v1';
+    const DB_NAME = 'moodboard_generator_db';
+    const DB_STORE = 'state';
+
+    // ── DOM refs ──
+    const apiKeyEl  = document.getElementById('apiKey');
+    const modelEl   = document.getElementById('modelSel');
+    const saveBtn   = document.getElementById('saveBtn');
+    const fileIn    = document.getElementById('fileIn');
+    const zone      = document.getElementById('zone');
+    const imgGrid   = document.getElementById('imgGrid');
+    const analyzeBtn= document.getElementById('analyzeBtn');
+    const clearSavedBtn = document.getElementById('clearSavedBtn');
+    const statusTxt = document.getElementById('statusTxt');
+    const results   = document.getElementById('results');
+    const loadBox   = document.getElementById('loadBox');
+    const errBox    = document.getElementById('errBox');
+    const errMsg    = document.getElementById('errMsg');
+    const resCont   = document.getElementById('resultContent');
+
+    // ── API settings toggle ──
+    const apiToggle  = document.getElementById('apiToggle');
+    const apiBody    = document.getElementById('apiBody');
+    const apiChevron = document.getElementById('apiChevron');
+    apiToggle.addEventListener('click', () => {
+        const open = apiBody.classList.toggle('open');
+        apiChevron.classList.toggle('open', open);
+    });
+
+    // ── Restore saved prefs ──
+    const sk = localStorage.getItem('mb_key');
+    const sm = localStorage.getItem('mb_model');
+    if (sk) apiKeyEl.value = sk;
+    if (sm) modelEl.value  = sm;
+    restoreBoard();
+
+    saveBtn.addEventListener('click', () => {
+        localStorage.setItem('mb_key',   apiKeyEl.value.trim());
+        localStorage.setItem('mb_model', modelEl.value);
+        saveBtn.textContent = '저장됨 ✓';
+        setTimeout(() => { saveBtn.textContent = '저장'; }, 1600);
+    });
+
+    // ── File input ──
+    fileIn.addEventListener('change', e => addFiles([...e.target.files]));
+
+    zone.addEventListener('dragover',  e => { e.preventDefault(); zone.classList.add('drag'); });
+    zone.addEventListener('dragleave', ()  => zone.classList.remove('drag'));
+    zone.addEventListener('drop', e => {
+        e.preventDefault(); zone.classList.remove('drag');
+        addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+    });
+
+    function addFiles(files) {
+        const slots = 10 - imgs.length;
+        files.slice(0, slots).forEach(f => {
+            if (f.size > 5 * 1024 * 1024) { alert(`${f.name}: 5 MB 초과`); return; }
+            const r = new FileReader();
+            r.onload = ev => {
+                imgs.push({ id: Math.random().toString(36).slice(2), name: f.name, mime: f.type || 'image/jpeg', url: ev.target.result, b64: ev.target.result.split(',')[1] });
+                lastResult = null;
+                results.classList.add('hidden');
+                renderGrid(); sync(); saveBoard();
+            };
+            r.readAsDataURL(f);
+        });
+        // reset input so same file can be re-added after removal
+        fileIn.value = '';
+    }
+
+    function renderGrid() {
+        imgGrid.innerHTML = '';
+        imgs.forEach(img => {
+            const el = document.createElement('div');
+            el.className = 'img-item';
+            el.innerHTML = `<img src="${img.url}" alt="${esc(img.name)}">
+                <button class="rm" data-id="${img.id}">✕</button>
+                <div class="fn">${esc(img.name)}</div>`;
+            imgGrid.appendChild(el);
+        });
+        imgGrid.querySelectorAll('.rm').forEach(btn => {
+            btn.addEventListener('click', () => {
+                imgs = imgs.filter(i => i.id !== btn.dataset.id);
+                lastResult = null;
+                results.classList.add('hidden');
+                renderGrid(); sync(); saveBoard();
+            });
+        });
+    }
+
+    function sync() {
+        const n = imgs.length;
+        statusTxt.textContent = n ? `${n}장의 이미지 준비 완료` : '이미지를 업로드하면 분석할 수 있습니다';
+        analyzeBtn.disabled = !n;
+        clearSavedBtn.classList.toggle('hidden', !n && !lastResult);
+    }
+
+    clearSavedBtn.addEventListener('click', () => {
+        if (!confirm('저장된 이미지와 분석 결과를 모두 지울까요?')) return;
+        imgs = [];
+        lastResult = null;
+        localStorage.removeItem(STORE_KEY);
+        deleteSavedBoard();
+        renderGrid();
+        sync();
+        results.classList.add('hidden');
+    });
+
+    // ── Tabs ──
+    document.querySelectorAll('.tab').forEach(t => {
+        t.addEventListener('click', () => {
+            document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+            t.classList.add('active');
+            document.getElementById('tab-' + t.dataset.t).classList.add('active');
+        });
+    });
+
+    // ── Analyze ──
+    analyzeBtn.addEventListener('click', run);
+
+    async function run() {
+        const key = apiKeyEl.value.trim();
+        if (!key) { alert('API 키를 입력하세요.'); return; }
+        if (!imgs.length) return;
+
+        results.classList.remove('hidden');
+        loadBox.classList.remove('hidden');
+        errBox.classList.add('hidden');
+        resCont.classList.add('hidden');
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = '분석 중…';
+
+        try {
+            const data = await callAPI(key);
+            render(data);
+            lastResult = data;
+            saveBoard();
+            loadBox.classList.add('hidden');
+            resCont.classList.remove('hidden');
+        } catch (e) {
+            loadBox.classList.add('hidden');
+            errBox.classList.remove('hidden');
+            errMsg.textContent = `오류: ${e.message}`;
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.innerHTML = '✨ AI 분석 시작';
+        }
+    }
+
+    async function callAPI(key) {
+        const model = modelEl.value;
+        const content = [];
+
+        imgs.forEach((img, i) => {
+            content.push({ type: 'image', source: { type: 'base64', media_type: img.mime, data: img.b64 } });
+            content.push({ type: 'text', text: `[이미지 ${i + 1}: ${img.name}]` });
+        });
+
+        content.push({ type: 'text', text: buildPrompt(imgs.length) });
+
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': key,
+                'anthropic-version': '2023-06-01',
+                'anthropic-dangerous-direct-browser-access': 'true'
+            },
+            body: JSON.stringify({ model, max_tokens: 4096, messages: [{ role: 'user', content }] })
+        });
+
+        if (!res.ok) {
+            const e = await res.json().catch(() => ({}));
+            throw new Error(e.error?.message || `HTTP ${res.status}`);
+        }
+
+        const json = await res.json();
+        let txt = json.content[0].text.trim();
+
+        // strip markdown code fences if present
+        const fence = txt.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (fence) txt = fence[1].trim();
+
+        return JSON.parse(txt);
+    }
+
+    function buildPrompt(n) {
+        return `위 ${n}장의 이미지를 분석해 무드보드용 JSON을 반환해주세요. 마크다운 없이 순수 JSON만 출력하세요.
+
+{
+  "collection": {
+    "name": "감각적인 한국어 컬렉션 이름 (2~5단어)",
+    "description": "컬렉션 소개글 2~3문장. 무드와 감성을 담아 한국어로."
+  },
+  "keywords": ["키워드1", ...],
+  "moods": ["무드1", ...],
+  "colors": ["#RRGGBB", ...],
+  "pinterest_queries": ["English query 1", "English query 2", ..., "한국어 검색어"],
+  "groups": [
+    { "name": "그룹명", "description": "한 문장 설명", "image_indices": [0, 1] }
+  ],
+  "image_details": [
+    { "index": 0, "keywords": ["kw1","kw2","kw3","kw4","kw5"] }
+  ]
+}
+
+규칙:
+- keywords: 이미지 전체를 아우르는 핵심 키워드 15~25개 (한/영 혼용)
+- moods: 감성·분위기 단어 8~12개 (예: "몽환적인", "미니멀", "urban", "dreamy")
+- colors: 주요 hex 색상 5~8개
+- pinterest_queries: 핀터레스트 검색 최적화 10~15개, 영어 위주 + 한국어 2~3개 포함
+- groups: 테마/무드/색감 기준 2~4개 그룹, image_indices는 0-based
+- image_details: 각 이미지마다 개별 키워드 5개
+JSON만 출력하세요.`;
+    }
+
+    function render(d) {
+        // Collection
+        document.getElementById('colName').textContent = d.collection?.name  || '나의 무드보드';
+        document.getElementById('colDesc').textContent = d.collection?.description || '';
+
+        // Keywords
+        const kwCloud = document.getElementById('kwCloud');
+        kwCloud.innerHTML = '';
+        const kws = d.keywords || [];
+        document.getElementById('kwCount').textContent = kws.length;
+        kws.forEach(k => { const s = span('tag', k); kwCloud.appendChild(s); });
+
+        // Moods
+        const mCloud = document.getElementById('moodCloud');
+        mCloud.innerHTML = '';
+        (d.moods || []).forEach(m => { const s = span('tag mood', m); mCloud.appendChild(s); });
+
+        // Colors
+        const pal = document.getElementById('palette');
+        pal.innerHTML = '';
+        (d.colors || []).forEach(c => {
+            const wrap = document.createElement('div'); wrap.className = 'swatch-wrap';
+            const sw = document.createElement('div'); sw.className = 'swatch';
+            sw.style.background = c; sw.title = c;
+            sw.addEventListener('click', () => { navigator.clipboard.writeText(c).catch(() => {}); sw.style.outline = '2px solid #fff'; setTimeout(() => { sw.style.outline = ''; }, 900); });
+            const lbl = document.createElement('div'); lbl.className = 'swatch-hex'; lbl.textContent = c;
+            wrap.appendChild(sw); wrap.appendChild(lbl); pal.appendChild(wrap);
+        });
+
+        // Groups
+        const gc = document.getElementById('groupsCont'); gc.innerHTML = '';
+        (d.groups || []).forEach((g, i) => {
+            const imgEls = (g.image_indices || []).filter(x => x < imgs.length).map(x => imgs[x]);
+            const div = document.createElement('div'); div.className = 'group-card';
+            div.innerHTML = `
+                <div class="group-head">
+                    <span class="group-badge">그룹 ${i + 1}</span>
+                    <span class="group-name">${esc(g.name)}</span>
+                    <span class="group-desc">${esc(g.description || '')}</span>
+                </div>
+                <div class="group-imgs">${imgEls.map(img => `<div class="group-img"><img src="${img.url}" alt="${esc(img.name)}"></div>`).join('')}</div>`;
+            gc.appendChild(div);
+        });
+
+        // Image details
+        const dc = document.getElementById('detailsCont'); dc.innerHTML = '';
+        (d.image_details || []).forEach(det => {
+            const img = imgs[det.index]; if (!img) return;
+            const div = document.createElement('div'); div.className = 'img-detail';
+            div.innerHTML = `
+                <img src="${img.url}" alt="${esc(img.name)}">
+                <div style="flex:1">
+                    <div class="detail-name">${esc(img.name)}</div>
+                    <div class="detail-tags">${(det.keywords || []).map(k => `<span>${esc(k)}</span>`).join('')}</div>
+                </div>`;
+            dc.appendChild(div);
+        });
+
+        // Pinterest
+        const pl = document.getElementById('pinList'); pl.innerHTML = '';
+        (d.pinterest_queries || []).forEach(q => {
+            const a = document.createElement('a');
+            a.className = 'p-item';
+            a.href = `https://www.pinterest.com/search/pins/?q=${encodeURIComponent(q)}`;
+            a.target = '_blank'; a.rel = 'noopener noreferrer';
+            a.innerHTML = `<span class="p-icon">P</span><span>${esc(q)}</span><span class="p-arrow">↗</span>`;
+            pl.appendChild(a);
+        });
+
+        // Reset to first tab
+        document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', i === 0));
+        document.querySelectorAll('.tab-panel').forEach((p, i) => p.classList.toggle('active', i === 0));
+    }
+
+    async function saveBoard() {
+        const state = { id: STORE_KEY, imgs, result: lastResult, savedAt: new Date().toISOString() };
+        try {
+            const db = await openBoardDb();
+            const tx = db.transaction(DB_STORE, 'readwrite');
+            const done = txDone(tx);
+            tx.objectStore(DB_STORE).put(state);
+            await done;
+            localStorage.removeItem(STORE_KEY);
+        } catch (e) {
+            try {
+                localStorage.setItem(STORE_KEY, JSON.stringify(state));
+            } catch (fallbackError) {
+                console.warn('무드보드 저장 실패:', fallbackError);
+            }
+        }
+    }
+
+    async function restoreBoard() {
+        try {
+            const saved = await loadSavedBoard();
+            if (!saved) return;
+            imgs = Array.isArray(saved.imgs) ? saved.imgs : [];
+            lastResult = saved.result || null;
+            renderGrid();
+            sync();
+            if (lastResult) {
+                render(lastResult);
+                results.classList.remove('hidden');
+                loadBox.classList.add('hidden');
+                errBox.classList.add('hidden');
+                resCont.classList.remove('hidden');
+                statusTxt.textContent = `${imgs.length}장의 이미지와 저장된 결과를 불러왔습니다`;
+            }
+        } catch (e) {
+            console.warn('저장된 무드보드 불러오기 실패:', e);
+            localStorage.removeItem(STORE_KEY);
+        }
+    }
+
+    async function loadSavedBoard() {
+        try {
+            const db = await openBoardDb();
+            const tx = db.transaction(DB_STORE, 'readonly');
+            const done = txDone(tx);
+            const saved = await requestDone(tx.objectStore(DB_STORE).get(STORE_KEY));
+            await done;
+            if (saved) return saved;
+        } catch (e) {
+            console.warn('큰 저장소를 읽지 못했습니다:', e);
+        }
+
+        const raw = localStorage.getItem(STORE_KEY);
+        return raw ? JSON.parse(raw) : null;
+    }
+
+    async function deleteSavedBoard() {
+        try {
+            const db = await openBoardDb();
+            const tx = db.transaction(DB_STORE, 'readwrite');
+            const done = txDone(tx);
+            tx.objectStore(DB_STORE).delete(STORE_KEY);
+            await done;
+        } catch (e) {
+            console.warn('저장된 무드보드 삭제 실패:', e);
+        }
+    }
+
+    function openBoardDb() {
+        return new Promise((resolve, reject) => {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = () => req.result.createObjectStore(DB_STORE, { keyPath: 'id' });
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    function requestDone(req) {
+        return new Promise((resolve, reject) => {
+            req.onsuccess = () => resolve(req.result);
+            req.onerror = () => reject(req.error);
+        });
+    }
+
+    function txDone(tx) {
+        return new Promise((resolve, reject) => {
+            tx.oncomplete = resolve;
+            tx.onerror = () => reject(tx.error);
+            tx.onabort = () => reject(tx.error);
+        });
+    }
+
+    function span(cls, txt) {
+        const el = document.createElement('span'); el.className = cls; el.textContent = txt; return el;
+    }
+
+    function esc(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+})();
+</script>
+</body>
+</html>
